@@ -1,0 +1,95 @@
+#Reproducible Research: Peer Assessment
+
+```{r, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+library(knitr)
+library(ggplot2)
+library(data.table)
+```
+
+---
+title: "PA1_Dowling"
+output: html_document
+---
+
+```{r, results='markup', warning=TRUE, message=TRUE}
+
+setwd("C:/Users/17244/Documents/R/CourseEra")
+dt <- fread("activity.csv")
+```
+
+```{r}
+dt$date <- as.Date(dt$date)
+complete_dt <- dt[complete.cases(dt),]
+```
+
+```{r}
+stepsperday <- aggregate(complete_dt$steps, by=list(complete_dt$date), sum)
+steps_per_day <- aggregate(steps ~ date, complete_dt, sum)
+hist(steps_per_day$steps, main = "Number of steps per day.", xlab = "Steps")
+#hist(stepsperday$x, main = "Number of steps per day.", xlab = "Steps")
+
+round(mean(stepsperday$x))
+median(stepsperday$x)
+```
+
+```{r}
+average_steps_interval <- aggregate(steps ~ interval, complete_dt, mean)
+
+plot(average_steps_interval$interval, average_steps_interval$steps, type = "l", main = "Average Number of Steps per Interval.", xlab = "Time Intervals", ylab = "Average Number of Steps.")
+
+max_interval <- which.max(average_steps_interval$steps)
+
+print(paste("The interval with the highest average number of steps is ", average_steps_interval[max_interval,]$interval,
+            " and the number of steps is ", round(average_steps_interval[max_interval,]$steps, digits = 1)))
+            
+```
+
+
+## Missing Values
+```{r}
+missing_dt <- dt[!complete.cases(dt),]
+nrow(missing_dt)
+
+
+for (i in 1:nrow(dt)) {
+        if(is.na(dt$steps[i])){
+                val <- average_steps_interval$steps[which(average_steps_interval$interval == dt$interval[i])]
+                dt$steps[i] <- val
+        }
+}
+
+full_stepsperday <- aggregate(steps ~ date, dt, sum)
+
+hist(full_stepsperday$steps, main = "Histogram of steps per day with calculated missing values.", xlab = "Steps per day")
+
+round(mean(full_stepsperday$steps))
+median(full_stepsperday$steps)
+
+```
+
+#Differences between weekdays and weekends
+```{r}
+week_day <- function(date_val) {
+        wd <- weekdays(as.Date(date_val, '%Y-%m-%d'))
+        if (!(wd == 'Saturday' || wd == 'Sunday')) {
+                x <- 'Weekday'
+        } else {
+                x <- 'Weekend'
+        }
+        x
+}
+
+dt$day_type <- as.factor(sapply(dt$date, week_day))
+
+steps_per_day_imputed <- aggregate(steps ~ interval+day_type, dt, mean)
+
+panel_plot <- ggplot(steps_per_day_imputed, aes(interval, steps)) +
+        geom_line(stat = "identity", aes(colour = day_type)) +
+        theme_light() +
+        facet_grid(day_type ~ ., scales = "fixed", space = "fixed") +
+        labs(x="Interval", y=expression("No of Steps")) +
+        ggtitle("Number of Steps per Interval by Day Type")
+print(panel_plot)
+```
+
+
